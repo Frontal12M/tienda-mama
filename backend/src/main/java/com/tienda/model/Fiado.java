@@ -32,10 +32,10 @@ public class Fiado {
 
     private BigDecimal monto;
 
-    @Column(columnDefinition = "decimal default 0")
+    
     private BigDecimal montoPagado = BigDecimal.ZERO;
 
-    @Column(columnDefinition = "boolean default false")
+    
     private Boolean pagado = false;
 
     private LocalDateTime fechaFiado;
