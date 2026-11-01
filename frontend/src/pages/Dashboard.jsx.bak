@@ -1,0 +1,545 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FiDollarSign,
+  FiTrendingUp,
+  FiShoppingCart,
+  FiAlertTriangle,
+  FiArrowRight,
+  FiStar,
+} from 'react-icons/fi';
+import { getProductosBajoStock, getVentasHoy, getResumenVentas } from '../services/api';
+
+function hoyStr() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+
+function fechaBonita() {
+  return new Date().toLocaleDateString('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [ventas, setVentas] = useState([]);
+  const [resumen, setResumen] = useState(null);
+  const [bajoStock, setBajoStock] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    async function cargar() {
+      setCargando(true);
+      try {
+        const hoy = hoyStr();
+        const [ventasData, bajoStockData] = await Promise.all([
+          getVentasHoy(),
+          getProductosBajoStock(),
+        ]);
+        setVentas(ventasData || []);
+        setBajoStock(bajoStockData || []);
+
+        try {
+          const resumenData = await getResumenVentas(hoy, hoy);
+          setResumen(resumenData);
+        } catch {
+          setResumen(null);
+        }
+      } catch (err) {
+        console.error('Error cargando dashboard:', err);
+      } finally {
+        setCargando(false);
+      }
+    }
+    cargar();
+  }, []);
+
+  // Calculate totals from ventas
+  const totalVendido = ventas.reduce((sum, v) => sum + (Number(v.total) || 0), 0);
+  const cantidadVentas = ventas.length;
+
+  // Calculate profit from detalles if available
+  let ganancia = 0;
+  let gananciaDisponible = false;
+  for (const v of ventas) {
+    if (v.detalles) {
+      for (const d of v.detalles) {
+        const pv = Number(d.producto?.precioVenta ?? d.precioUnitario ?? 0);
+        const pc = Number(d.producto?.precioCompra ?? 0);
+        if (pc > 0) {
+          ganancia += (pv - pc) * (d.cantidad || 0);
+          gananciaDisponible = true;
+        }
+      }
+    }
+  }
+  const recomendacionAhorro = ganancia * 0.5;
+
+  // Breakdown by payment method
+  const porMetodo = { EFECTIVO: { count: 0, total: 0 }, TARJETA: { count: 0, total: 0 }, FIADO: { count: 0, total: 0 } };
+  for (const v of ventas) {
+    const m = v.metodoPago || 'EFECTIVO';
+    if (!porMetodo[m]) porMetodo[m] = { count: 0, total: 0 };
+    porMetodo[m].count += 1;
+    porMetodo[m].total += Number(v.total) || 0;
+  }
+
+  // Top products from resumen
+  const productosMasVendidos = resumen?.productosMasVendidos ?? [];
+  const maxCantidad = productosMasVendidos.length > 0
+    ? Math.max(...productosMasVendidos.map((p) => p[2]))
+    : 1;
+
+  const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  if (cargando) {
+    return (
+      <div style={s.contenedor}>
+        <p style={{ textAlign: 'center', color: '#8B7355', fontSize: 18, padding: 60 }}>Cargando dashboard...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.contenedor}>
+      {/* Header */}
+      <div style={s.header}>
+        <h1 style={s.saludo}>🌸 ¡Buen día!</h1>
+        <p style={s.fecha}>{fechaBonita()}</p>
+      </div>
+
+      {/* Summary cards */}
+      <div style={s.tarjetas}>
+        <div style={{ ...s.tarjeta, borderLeft: '5px solid #1B7A5A' }}>
+          <div style={{ ...s.tarjetaIcono, background: 'rgba(27,122,90,0.1)' }}>
+            <FiDollarSign size={26} color="#1B7A5A" />
+          </div>
+          <div>
+            <p style={s.tarjetaLabel}>Ventas Hoy</p>
+            <p style={{ ...s.tarjetaValor, color: '#1B7A5A' }}>${fmt(totalVendido)}</p>
+          </div>
+        </div>
+
+        <div style={{ ...s.tarjeta, borderLeft: '5px solid #E07A3A' }}>
+          <div style={{ ...s.tarjetaIcono, background: 'rgba(224,122,58,0.1)' }}>
+            <FiTrendingUp size={26} color="#E07A3A" />
+          </div>
+          <div>
+            <p style={s.tarjetaLabel}>Ganancia</p>
+            <p style={{ ...s.tarjetaValor, color: '#E07A3A' }}>
+              {gananciaDisponible ? `$${fmt(ganancia)}` : '—'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ ...s.tarjeta, borderLeft: '5px solid #8B7355' }}>
+          <div style={{ ...s.tarjetaIcono, background: 'rgba(139,115,85,0.1)' }}>
+            <FiShoppingCart size={26} color="#8B7355" />
+          </div>
+          <div>
+            <p style={s.tarjetaLabel}>Ventas</p>
+            <p style={{ ...s.tarjetaValor, color: '#8B7355' }}>{cantidadVentas}</p>
+          </div>
+        </div>
+
+        {/* Ahorro recomendado - prominent */}
+        <div style={s.tarjetaAhorro}>
+          <p style={s.ahorroEmoji}>🐷</p>
+          <p style={s.ahorroLabel}>Ahorro Recomendado</p>
+          <p style={s.ahorroValor}>
+            {gananciaDisponible ? `$${fmt(recomendacionAhorro)}` : '—'}
+          </p>
+          {gananciaDisponible && (
+            <p style={s.ahorroTip}>Te recomendamos guardar esto hoy</p>
+          )}
+        </div>
+      </div>
+
+      {/* Alertas de stock bajo */}
+      <div style={s.seccion}>
+        <div style={s.seccionHeader}>
+          <FiAlertTriangle size={22} color="#E07A3A" />
+          <h2 style={s.subtitulo}>Alertas de Stock Bajo</h2>
+        </div>
+
+        {bajoStock.length === 0 ? (
+          <div style={s.sinAlertas}>
+            <p style={{ fontSize: 32, margin: '0 0 8px' }}>✅</p>
+            <p style={{ margin: 0, color: '#1B7A5A', fontWeight: 600 }}>¡Todo bien con el stock!</p>
+            <p style={{ margin: '4px 0 0', color: '#8B7355', fontSize: 14 }}>No hay productos por debajo del mínimo</p>
+          </div>
+        ) : (
+          <>
+            <div style={s.alertasGrid}>
+              {bajoStock.slice(0, 8).map((prod) => (
+                <div key={prod.id} style={s.alertaCard}>
+                  <div style={s.alertaTop}>
+                    <span style={s.alertaNombre}>{prod.nombre}</span>
+                    {prod.stock === 0 && <span style={s.badgeAgotado}>AGOTADO</span>}
+                  </div>
+                  <div style={s.alertaBottom}>
+                    <div>
+                      <span style={s.alertaStockLabel}>Actual: </span>
+                      <span style={{ ...s.alertaStockVal, color: prod.stock === 0 ? '#DC2626' : '#E07A3A' }}>
+                        {prod.stock}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={s.alertaStockLabel}>Mínimo: </span>
+                      <span style={s.alertaStockVal}>{prod.stockMinimo}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {bajoStock.length > 8 && (
+              <p style={{ color: '#8B7355', fontSize: 14, marginTop: 8 }}>
+                y {bajoStock.length - 8} productos más...
+              </p>
+            )}
+            <button
+              onClick={() => navigate('/compras')}
+              style={s.botonCompras}
+            >
+              Ver lista de compras <FiArrowRight size={18} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Productos más vendidos hoy */}
+      <div style={s.seccion}>
+        <div style={s.seccionHeader}>
+          <FiStar size={22} color="#1B7A5A" />
+          <h2 style={s.subtitulo}>Productos Más Vendidos Hoy</h2>
+        </div>
+        {productosMasVendidos.length === 0 ? (
+          <p style={s.sinDatos}>Aún no hay ventas hoy</p>
+        ) : (
+          <div style={s.barrasContenedor}>
+            {productosMasVendidos.slice(0, 8).map((producto) => {
+              const [id, nombre, cantidad] = producto;
+              const porcentaje = (cantidad / maxCantidad) * 100;
+              return (
+                <div key={id} style={s.barraFila}>
+                  <span style={s.barraNombre}>{nombre}</span>
+                  <div style={s.barraFondo}>
+                    <div style={{ ...s.barraRelleno, width: `${porcentaje}%` }} />
+                  </div>
+                  <span style={s.barraCantidad}>{cantidad}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Corte de Caja Rápido */}
+      <div style={s.seccion}>
+        <div style={s.seccionHeader}>
+          <FiDollarSign size={22} color="#1B7A5A" />
+          <h2 style={s.subtitulo}>Corte de Caja Rápido</h2>
+        </div>
+
+        {cantidadVentas === 0 ? (
+          <p style={s.sinDatos}>No hay ventas registradas hoy</p>
+        ) : (
+          <div style={s.corteGrid}>
+            {[
+              { key: 'EFECTIVO', label: 'Efectivo', emoji: '💵', color: '#1B7A5A', bg: 'rgba(27,122,90,0.08)' },
+              { key: 'TARJETA', label: 'Tarjeta', emoji: '💳', color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+              { key: 'FIADO', label: 'Fiado', emoji: '📋', color: '#E07A3A', bg: 'rgba(224,122,58,0.08)' },
+            ].map((m) => (
+              <div key={m.key} style={{ ...s.corteCard, background: m.bg, borderColor: m.color }}>
+                <span style={{ fontSize: 28 }}>{m.emoji}</span>
+                <p style={{ ...s.corteLabel, color: m.color }}>{m.label}</p>
+                <p style={{ ...s.corteTotal, color: m.color }}>${fmt(porMetodo[m.key]?.total || 0)}</p>
+                <p style={s.corteCantidad}>{porMetodo[m.key]?.count || 0} ventas</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {cantidadVentas > 0 && (
+          <div style={s.corteTotalRow}>
+            <span style={{ fontWeight: 700 }}>Total en caja (Efectivo):</span>
+            <span style={{ fontWeight: 800, fontSize: 20, color: '#1B7A5A' }}>
+              ${fmt(porMetodo.EFECTIVO?.total || 0)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const s = {
+  contenedor: {
+    padding: '24px',
+    maxWidth: '960px',
+    margin: '0 auto',
+    fontFamily: "var(--font-body, 'Inter', sans-serif)",
+  },
+  header: {
+    marginBottom: '28px',
+  },
+  saludo: {
+    fontSize: '32px',
+    fontWeight: 800,
+    fontFamily: "'Nunito', sans-serif",
+    color: 'var(--text, #2C1810)',
+    margin: '0 0 4px',
+  },
+  fecha: {
+    fontSize: '16px',
+    color: 'var(--text-light, #8B7355)',
+    margin: 0,
+    textTransform: 'capitalize',
+  },
+  tarjetas: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '32px',
+  },
+  tarjeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '20px',
+    background: 'var(--card, #FEFCF9)',
+    borderRadius: '16px',
+    boxShadow: 'var(--shadow, 0 1px 3px rgba(44,24,16,0.06))',
+  },
+  tarjetaIcono: {
+    width: '52px',
+    height: '52px',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  tarjetaLabel: {
+    margin: 0,
+    fontSize: '13px',
+    color: 'var(--text-light, #8B7355)',
+    fontWeight: 500,
+  },
+  tarjetaValor: {
+    margin: '4px 0 0',
+    fontSize: '26px',
+    fontWeight: 800,
+    fontFamily: "'Nunito', sans-serif",
+  },
+  tarjetaAhorro: {
+    padding: '20px',
+    background: 'linear-gradient(135deg, #E8F5E9, #C8E6C9)',
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(27,122,90,0.12)',
+    textAlign: 'center',
+    borderLeft: '5px solid #1B7A5A',
+  },
+  ahorroEmoji: {
+    fontSize: '36px',
+    margin: '0 0 4px',
+  },
+  ahorroLabel: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#2E7D32',
+    fontWeight: 600,
+  },
+  ahorroValor: {
+    margin: '4px 0 2px',
+    fontSize: '28px',
+    fontWeight: 800,
+    fontFamily: "'Nunito', sans-serif",
+    color: '#1B5E20',
+  },
+  ahorroTip: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#388E3C',
+    fontWeight: 500,
+  },
+  seccion: {
+    marginBottom: '32px',
+  },
+  seccionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '16px',
+  },
+  subtitulo: {
+    fontSize: '20px',
+    fontWeight: 700,
+    fontFamily: "'Nunito', sans-serif",
+    color: 'var(--text, #2C1810)',
+    margin: 0,
+  },
+  sinAlertas: {
+    textAlign: 'center',
+    padding: '32px',
+    background: 'rgba(27,122,90,0.05)',
+    borderRadius: '16px',
+    border: '2px solid rgba(27,122,90,0.15)',
+  },
+  alertasGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '12px',
+  },
+  alertaCard: {
+    padding: '14px 16px',
+    background: '#FFF8F0',
+    borderRadius: '12px',
+    border: '2px solid rgba(224,122,58,0.25)',
+  },
+  alertaTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  alertaNombre: {
+    fontWeight: 700,
+    fontSize: '15px',
+    color: '#2C1810',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '160px',
+  },
+  badgeAgotado: {
+    fontSize: '11px',
+    fontWeight: 800,
+    padding: '2px 8px',
+    borderRadius: '8px',
+    background: 'rgba(220,38,38,0.1)',
+    color: '#DC2626',
+  },
+  alertaBottom: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '14px',
+  },
+  alertaStockLabel: {
+    color: '#8B7355',
+  },
+  alertaStockVal: {
+    fontWeight: 700,
+    color: '#2C1810',
+  },
+  botonCompras: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '16px',
+    padding: '12px 24px',
+    background: '#E07A3A',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  sinDatos: {
+    color: 'var(--text-placeholder, #B8A089)',
+    fontSize: '16px',
+    textAlign: 'center',
+    padding: '32px',
+  },
+  barrasContenedor: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    background: 'var(--card, #FEFCF9)',
+    padding: '20px',
+    borderRadius: '16px',
+    boxShadow: 'var(--shadow, 0 1px 3px rgba(44,24,16,0.06))',
+  },
+  barraFila: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  barraNombre: {
+    width: '120px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: 'var(--text, #2C1810)',
+    textAlign: 'right',
+    flexShrink: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  barraFondo: {
+    flex: 1,
+    height: '28px',
+    background: 'var(--border, #F0E6D8)',
+    borderRadius: '8px',
+    overflow: 'hidden',
+  },
+  barraRelleno: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #22956E, #1B7A5A)',
+    borderRadius: '8px',
+    transition: 'width 0.5s ease',
+    minWidth: '4px',
+  },
+  barraCantidad: {
+    width: '50px',
+    fontSize: '16px',
+    fontWeight: 700,
+    color: 'var(--text, #2C1810)',
+    textAlign: 'right',
+    flexShrink: 0,
+  },
+  corteGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '16px',
+  },
+  corteCard: {
+    padding: '20px',
+    borderRadius: '16px',
+    textAlign: 'center',
+    borderLeft: '4px solid',
+  },
+  corteLabel: {
+    margin: '8px 0 4px',
+    fontSize: '14px',
+    fontWeight: 700,
+  },
+  corteTotal: {
+    margin: '0 0 2px',
+    fontSize: '24px',
+    fontWeight: 800,
+    fontFamily: "'Nunito', sans-serif",
+  },
+  corteCantidad: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#8B7355',
+  },
+  corteTotalRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: '16px',
+    padding: '16px 20px',
+    background: 'rgba(27,122,90,0.06)',
+    borderRadius: '12px',
+    border: '2px solid rgba(27,122,90,0.15)',
+    color: '#2C1810',
+    fontSize: '16px',
+  },
+};
