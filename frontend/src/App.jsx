@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { FiHome, FiShoppingCart, FiPackage, FiUsers, FiBarChart2, FiShoppingBag, FiLogOut, FiClipboard } from 'react-icons/fi';
+import { FiHome, FiShoppingCart, FiPackage, FiUsers, FiBarChart2, FiShoppingBag, FiLogOut, FiClipboard, FiDollarSign } from 'react-icons/fi';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import PuntoDeVenta from './pages/PuntoDeVenta';
@@ -10,6 +10,7 @@ import Reportes from './pages/Reportes';
 import ListaCompras from './pages/ListaCompras';
 import Dashboard from './pages/Dashboard';
 import CorteDeCaja from './pages/CorteDeCaja';
+import MovimientosCaja from './pages/MovimientosCaja';
 
 const navItems = [
   { path: '/', label: 'Inicio', icon: FiHome },
@@ -18,6 +19,7 @@ const navItems = [
   { path: '/fiados', label: 'Fiados', icon: FiUsers },
   { path: '/reportes', label: 'Reportes', icon: FiBarChart2 },
   { path: '/corte', label: 'Corte', icon: FiClipboard },
+  { path: '/caja', label: 'Caja', icon: FiDollarSign },
   { path: '/compras', label: 'Compras', icon: FiShoppingBag },
 ];
 
@@ -112,6 +114,7 @@ function AppContent() {
           <Route path="/fiados" element={<Fiados />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/corte" element={<CorteDeCaja />} />
+          <Route path="/caja" element={<MovimientosCaja />} />
           <Route path="/compras" element={<ListaCompras />} />
         </Routes>
       </main>

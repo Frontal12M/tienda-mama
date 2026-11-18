@@ -224,3 +224,20 @@ export async function registrarPago(fiadoId, monto) {
 }
 
 export default api;
+
+// ============ MOVIMIENTOS DE CAJA ============
+
+export async function getMovimientosCaja(inicio, fin) {
+  const { data } = await api.get('/movimientos-caja', { params: { inicio, fin } });
+  return data;
+}
+
+export async function crearMovimientoCaja(movimientoData) {
+  const { data } = await api.post('/movimientos-caja', movimientoData);
+  return data;
+}
+
+export async function getResumenCaja(inicio, fin) {
+  const { data } = await api.get('/movimientos-caja/resumen', { params: { inicio, fin } });
+  return data;
+}
