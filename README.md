@@ -1,4 +1,4 @@
-# 🏪 La Tienda de Mamá - Sistema POS
+# 🏪 La Tienda - Sistema POS
 
 Sistema de punto de venta para tienda de abarrotes.
 
