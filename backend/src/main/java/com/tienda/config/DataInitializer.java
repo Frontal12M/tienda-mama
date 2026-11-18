@@ -33,6 +33,11 @@ public class DataInitializer {
                 categoriaRepo.save(crearCategoria("Abarrotes", "Arroz, frijol, aceite, enlatados"));
                 categoriaRepo.save(crearCategoria("Limpieza", "Jabon, cloro, detergente"));
                 categoriaRepo.save(crearCategoria("Higiene Personal", "Shampoo, pasta dental, papel"));
+<<<<<<< HEAD
+=======
+                categoriaRepo.save(crearCategoria("Panaderia", "Pan, galletas, tortillas"));
+                categoriaRepo.save(crearCategoria("Frutas y Verduras", "Frutas, verduras, legumbres"));
+>>>>>>> 79041ba (feat: add default categories back to DataInitializer)
             }
         };
     }
