@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiDollarSign,
@@ -29,6 +29,46 @@ export default function Dashboard() {
   const [resumen, setResumen] = useState(null);
   const [bajoStock, setBajoStock] = useState([]);
   const [cargando, setCargando] = useState(true);
+
+  // Global barcode scanner - redirects to PuntoDeVenta
+  const barcodeBuffer = useRef('');
+  const keystrokeTimes = useRef([]);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      const now = Date.now();
+      
+      if (e.key === 'Enter' && barcodeBuffer.current.length >= 4) {
+        const times = keystrokeTimes.current;
+        let allFast = true;
+        for (let i = 1; i < times.length; i++) {
+          if (times[i] - times[i - 1] > 50) { allFast = false; break; }
+        }
+        if (allFast) {
+          const code = barcodeBuffer.current;
+          barcodeBuffer.current = '';
+          keystrokeTimes.current = [];
+          navigate('/ventas', { state: { scanCode: code } });
+          return;
+        }
+        barcodeBuffer.current = '';
+        keystrokeTimes.current = [];
+        return;
+      }
+
+      if (/^\d$/.test(e.key)) {
+        barcodeBuffer.current += e.key;
+        keystrokeTimes.current.push(now);
+      } else if (e.key !== 'Enter' && e.key.length === 1) {
+        barcodeBuffer.current = '';
+        keystrokeTimes.current = [];
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
+
 
   useEffect(() => {
     async function cargar() {

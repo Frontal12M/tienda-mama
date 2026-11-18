@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FiSearch, FiShoppingCart, FiTrash2, FiPlus, FiMinus, FiUser, FiClock, FiPrinter, FiCamera } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import {
@@ -398,6 +399,7 @@ const S = {
 /* ─────────────── component ─────────────── */
 
 export default function PuntoDeVenta() {
+  const location = useLocation();
   // ----- search state -----
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -430,6 +432,14 @@ export default function PuntoDeVenta() {
   const videoRef = useRef(null);
   const scannerStreamRef = useRef(null);
   const scanIntervalRef = useRef(null);
+
+  // Handle barcode passed from Dashboard via navigation
+  useEffect(() => {
+    if (location.state?.scanCode) {
+      handleBarcodeScan(location.state.scanCode);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // auto-focus search on mount
   useEffect(() => {
