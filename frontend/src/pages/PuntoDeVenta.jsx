@@ -777,14 +777,21 @@ export default function PuntoDeVenta() {
       </html>
     `;
 
-    const ventanaTicket = window.open('', '_blank', 'width=350,height=600');
-    if (!ventanaTicket) { console.warn('Popup bloqueado'); return; }
-    ventanaTicket.document.write(ticketHTML);
-    ventanaTicket.document.close();
-    // Auto-print after a short delay for rendering
+    // Use hidden iframe for silent printing (no popup blocker issues)
+    let iframe = document.getElementById('ticket-print-frame');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'ticket-print-frame';
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(ticketHTML);
+    doc.close();
     setTimeout(() => {
-      try { ventanaTicket.print(); } catch (e) { /* user can print manually */ }
-    }, 400);
+      try { iframe.contentWindow.print(); } catch (e) { console.warn('Print failed:', e); }
+    }, 300);
   }
 
   /* ── submit sale ── */
@@ -838,7 +845,8 @@ export default function PuntoDeVenta() {
       };
       setHistorial(prev => [ventaHistorial, ...prev].slice(0, 50)); // keep last 50
 
-      // ticket is saved in historial - user can reprint from there
+      // Auto-print ticket
+      safePrintTicket(savedCart, savedTotal, savedMetodo, ventaHistorial.cambio);
 
       // success animation
       setShowSuccess(true);
