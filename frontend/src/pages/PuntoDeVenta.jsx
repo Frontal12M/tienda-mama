@@ -519,8 +519,8 @@ export default function PuntoDeVenta() {
   /* ── barcode lookup ── */
   async function handleBarcodeScan(code) {
     try {
-      const res = await getProductoPorCodigo(code);
-      const producto = res.data;
+      const producto = await getProductoPorCodigo(code);
+      
       if (producto && producto.id) {
         addToCart(producto);
         toast.success(`${producto.nombre} agregado`);
