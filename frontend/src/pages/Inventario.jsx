@@ -104,13 +104,14 @@ export default function Inventario() {
     }
     setCargando(true);
     try {
-      const payload = {
-        ...form,
+      const { categoriaId: catId, ...rest } = form;
+        const payload = {
+        ...rest,
         precioCompra: parseFloat(form.precioCompra) || 0,
         precioVenta: parseFloat(form.precioVenta) || 0,
         stock: parseInt(form.stock, 10) || 0,
         stockMinimo: parseInt(form.stockMinimo, 10) || 0,
-        categoriaId: form.categoriaId ? parseInt(form.categoriaId, 10) : null,
+        categoria: form.categoriaId ? { id: parseInt(form.categoriaId, 10) } : null,
       };
       if (editandoId) {
         await actualizarProducto(editandoId, payload);
